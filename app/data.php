@@ -216,3 +216,52 @@ function game_stats(): array
     }
     return ['players' => $players, 'topics' => $topics];
 }
+
+/* ---------- Missions (ภารกิจประจำเดือน) ---------- */
+
+/** หน่วยงาน/สาขาวิชา options for the mission join form, in admin-chosen order. */
+function units_list(bool $activeOnly = true): array
+{
+    return rows('SELECT * FROM units' . ($activeOnly ? ' WHERE is_active = 1' : '') . ' ORDER BY sort, id');
+}
+
+/**
+ * Active missions with progress computed live from mission_participants
+ * (not stored) — ['joined' => people who clicked เข้าร่วม, 'pct' => 0-100].
+ */
+function missions_with_progress(bool $activeOnly = true): array
+{
+    $sql = 'SELECT m.*, COUNT(mp.id) AS joined
+            FROM missions m
+            LEFT JOIN mission_participants mp ON mp.mission_id = m.id'
+        . ($activeOnly ? ' WHERE m.is_active = 1' : '')
+        . ' GROUP BY m.id ORDER BY m.sort, m.id';
+    $out = [];
+    foreach (rows($sql) as $m) {
+        $m['joined'] = (int)$m['joined'];
+        $m['pct'] = $m['target_count'] > 0 ? min(100, (int)round($m['joined'] / $m['target_count'] * 100)) : 0;
+        $out[] = $m;
+    }
+    return $out;
+}
+
+/** Has this browser session already joined this mission? (one join per session, like the intro game.) */
+function mission_already_joined(int $missionId): bool
+{
+    return !empty($_SESSION['missions_joined'][$missionId]);
+}
+
+/** Unit leaderboard by number of mission joins, optionally within a date range (Y-m-d). */
+function unit_leaderboard(?string $from = null, ?string $to = null): array
+{
+    $where = [];
+    $params = [];
+    if ($from) { $where[] = 'mp.created_at >= ?'; $params[] = $from . ' 00:00:00'; }
+    if ($to) { $where[] = 'mp.created_at <= ?'; $params[] = $to . ' 23:59:59'; }
+    $sql = 'SELECT u.id, u.name, COUNT(mp.id) AS joins, COUNT(DISTINCT mp.mission_id) AS missions
+            FROM mission_participants mp
+            JOIN units u ON u.id = mp.unit_id'
+        . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+        . ' GROUP BY u.id ORDER BY joins DESC, u.name';
+    return rows($sql, $params);
+}

@@ -8,7 +8,8 @@ $years = report_years();
 $year = in_array((int)($_GET['year'] ?? 0), $years, true) ? (int)$_GET['year'] : $years[0];
 $cats = categories();
 $progress = category_progress($year);
-$missions = rows('SELECT * FROM missions WHERE is_active = 1 ORDER BY sort, id');
+$missions = missions_with_progress();
+$units = units_list();
 $steps = [['1', 'วางแผน', 'กำหนดนโยบาย/เป้าหมาย', 'bg-ku text-white'], ['2', 'ลงมือทำ', 'ภารกิจและกิจกรรม', 'bg-ku-mid text-white'], ['3', 'ตรวจติดตาม', 'เก็บข้อมูล-หลักฐาน', 'bg-[#CFE8E4]'], ['4', 'ปรับปรุง', 'แก้ไขตามข้อสังเกต', 'bg-[#EEF6E6]']];
 
 require __DIR__ . '/../app/views/public_top.php';
@@ -44,14 +45,16 @@ require __DIR__ . '/../app/views/public_top.php';
   <div class="bg-[#EEF6E6] rounded-[30px] p-7">
     <h2 class="font-display font-medium text-[26px] mb-4">ภารกิจที่เปิดให้ร่วม</h2>
     <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
-      <?php foreach ($missions as $m): ?>
-        <div class="hover-lift bg-white rounded-[20px] p-4 flex flex-col gap-2.5">
+      <?php foreach ($missions as $m): $joined = mission_already_joined((int)$m['id']); ?>
+        <div class="hover-lift bg-white rounded-[20px] p-4 flex flex-col gap-2.5" data-mission-card="<?= (int)$m['id'] ?>">
           <div class="font-semibold"><?= e($m['name']) ?></div>
-          <div class="h-2.5 rounded-full bg-[#EDF0EA] overflow-hidden"><div class="grow-bar h-full rounded-full" data-w="<?= (int)$m['progress'] ?>" style="background:<?= e($m['color']) ?>"></div></div>
-          <div class="text-sm text-muted"><?= e($m['target_text']) ?> · <?= (int)$m['progress'] ?>%</div>
+          <div class="h-2.5 rounded-full bg-[#EDF0EA] overflow-hidden"><div class="grow-bar h-full rounded-full" data-w="<?= $m['pct'] ?>" data-mission-bar style="background:<?= e($m['color']) ?>"></div></div>
+          <div class="text-sm text-muted"><?= e($m['target_text']) ?> · <span data-mission-pct><?= $m['pct'] ?></span>% · <span data-mission-joined><?= $m['joined'] ?></span>/<?= (int)$m['target_count'] ?> คนเข้าร่วม</div>
+          <button type="button" class="btn-sm btn-outline self-start" data-mission-join="<?= (int)$m['id'] ?>" data-mission-name="<?= e($m['name']) ?>" <?= $joined ? 'disabled' : '' ?>><?= $joined ? 'เข้าร่วมแล้ว' : 'เข้าร่วม' ?></button>
         </div>
       <?php endforeach; ?>
     </div>
   </div>
 </div>
+<?php include __DIR__ . '/../app/views/partials/mission_join_dialog.php'; ?>
 <?php require __DIR__ . '/../app/views/public_bottom.php'; ?>

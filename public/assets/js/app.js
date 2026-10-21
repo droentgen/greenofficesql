@@ -241,6 +241,71 @@
     lb.addEventListener('close', function () { if (lbCur) lbCur.focus(); });
   }
 
+  /* ---------- Mission join dialog: [data-mission-join] buttons on home/operations pages ---------- */
+  var missionDlg = document.getElementById('mission-join-dlg');
+  if (missionDlg && missionDlg.showModal) {
+    var missionForm = missionDlg.querySelector('[data-mission-form]');
+    var missionNameEl = missionDlg.querySelector('[data-mission-dlg-name]');
+    var missionErr = missionDlg.querySelector('[data-mission-dlg-error]');
+    var missionSubmit = missionDlg.querySelector('[data-mission-dlg-submit]');
+    var missionBtn = null;
+
+    document.querySelectorAll('[data-mission-join]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (b.disabled) return;
+        missionBtn = b;
+        missionNameEl.textContent = b.getAttribute('data-mission-name');
+        missionErr.hidden = true;
+        missionForm.reset();
+        missionDlg.showModal();
+      });
+    });
+    missionDlg.querySelector('[data-mission-dlg-close]').addEventListener('click', function () { missionDlg.close(); });
+    missionDlg.addEventListener('click', function (ev) { if (ev.target === missionDlg) missionDlg.close(); });
+
+    missionForm.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      if (!missionBtn || missionSubmit.disabled) return;
+      var missionId = missionBtn.getAttribute('data-mission-join');
+      var name = missionForm.querySelector('[data-mission-dlg-field="name"]').value.trim();
+      var unitId = missionForm.querySelector('[data-mission-dlg-field="unit_id"]').value;
+      if (!name || !unitId) { missionErr.textContent = 'กรุณากรอกชื่อและเลือกหน่วยงาน'; missionErr.hidden = false; return; }
+
+      missionSubmit.disabled = true;
+      var token = document.querySelector('meta[name="csrf"]');
+      fetch(missionDlg.getAttribute('data-api'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF': token ? token.content : '' },
+        body: JSON.stringify({ mission_id: parseInt(missionId, 10), name: name, unit_id: parseInt(unitId, 10) })
+      }).then(function (r) { return r.json().then(function (d) { return { status: r.status, data: d }; }); })
+        .then(function (res) {
+          if (!res.data || !res.data.ok) {
+            missionErr.textContent = res.status === 409 ? 'คุณเข้าร่วมภารกิจนี้ไปแล้ว' : 'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง';
+            missionErr.hidden = false;
+            missionSubmit.disabled = false;
+            return;
+          }
+          var card = document.querySelector('[data-mission-card="' + missionId + '"]');
+          if (card) {
+            var bar = card.querySelector('[data-mission-bar]');
+            if (bar) bar.style.width = res.data.pct + '%';
+            var pctEl = card.querySelector('[data-mission-pct]');
+            if (pctEl) pctEl.textContent = res.data.pct;
+            var joinedEl = card.querySelector('[data-mission-joined]');
+            if (joinedEl) joinedEl.textContent = res.data.joined;
+          }
+          missionBtn.disabled = true;
+          missionBtn.textContent = 'เข้าร่วมแล้ว';
+          missionDlg.close();
+        })
+        .catch(function () {
+          missionErr.textContent = 'ส่งไม่สำเร็จ — ตรวจการเชื่อมต่อแล้วลองใหม่';
+          missionErr.hidden = false;
+          missionSubmit.disabled = false;
+        });
+    });
+  }
+
   /* ---------- Admin: preview a chosen image before uploading — <input type="file" data-preview="#imgId"> ---------- */
   document.querySelectorAll('input[type="file"][data-preview]').forEach(function (inp) {
     var img = document.querySelector(inp.getAttribute('data-preview'));

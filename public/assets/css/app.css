@@ -79,6 +79,10 @@ li:nth-child(4n+4) > .poster { --tilt: 2.4deg;  --pin: #0B7A77; }
 .lb-btn:hover, .lb-btn:focus-visible { background: rgba(255,255,255,.3); outline: none; }
 .lb-btn[hidden], [data-poster-group][hidden], [data-year-link][hidden] { display: none; }
 
+/* Mission join dialog */
+.mission-dlg { margin: auto; padding: 0; border: 0; border-radius: 28px; max-width: calc(100vw - 32px); background: #fff; }
+.mission-dlg::backdrop { background: rgba(0,30,29,.6); backdrop-filter: blur(3px); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .grow-bar, .grow-h { transition: none; }

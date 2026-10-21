@@ -39,8 +39,10 @@ After changing seed data in `database/install.php`, regenerate `database/seed.sq
 ## Database (see database/schema.sql)
 users, settings, app_sessions (PHP session storage), resource_monthly, categories, criteria_issues, criteria_indicators, criteria_subitems,
 criteria_reports (one per indicator per year; checks_json = finished sub-items), criteria_evidence (links),
-news, documents (about tabs + complaint plan; pdf/image/link), missions, activities, audit_findings,
-complaints, complaint_plan_steps, game_responses.
+news, documents (about tabs + complaint plan; pdf/image/link), units (หน่วยงาน/สาขาวิชา options for joining a mission),
+missions (target_count + mission_participants drive the progress bar — never set progress by hand), mission_participants
+(one row per person who clicked เข้าร่วม — see `missions_with_progress()`/`unit_leaderboard()` in app/data.php and
+admin › แดชบอร์ดภารกิจ), activities, audit_findings, complaints, complaint_plan_steps, game_responses.
 
 Schema changes for an already-running database go in `database/migrations/<date>-<name>.sql` (run once via phpMyAdmin or the mysql CLI);
 keep `schema.sql` as the full current structure for fresh installs.

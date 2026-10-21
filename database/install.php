@@ -125,12 +125,18 @@ function seed_statements(bool $withSample): array
     }
 
     $missions = [
-        ['ลดการใช้พลาสติกแบบใช้ครั้งเดียว', 'เป้า: งดแก้วพลาสติกทุกการประชุม', 64, '#9CCB3B', 1],
-        ['ปิดเมื่อไม่ใช้งาน', 'เป้า: ไฟฟ้าลด 5% จากเดือนก่อน', 82, '#FFC845', 2],
-        ['ใช้กระดาษอย่างคุ้มค่า', 'เป้า: ไม่เกิน 90 รีม/เดือน', 48, '#7CC6E8', 3],
+        ['ลดการใช้พลาสติกแบบใช้ครั้งเดียว', 'เป้า: งดแก้วพลาสติกทุกการประชุม', 100, '#9CCB3B', 1],
+        ['ปิดเมื่อไม่ใช้งาน', 'เป้า: ไฟฟ้าลด 5% จากเดือนก่อน', 100, '#FFC845', 2],
+        ['ใช้กระดาษอย่างคุ้มค่า', 'เป้า: ไม่เกิน 90 รีม/เดือน', 80, '#7CC6E8', 3],
     ];
     foreach ($missions as $m) {
-        $add('INSERT INTO missions (name, target_text, progress, color, sort) VALUES (?,?,?,?,?)', $m);
+        $add('INSERT INTO missions (name, target_text, target_count, color, sort) VALUES (?,?,?,?,?)', $m);
+    }
+
+    // หน่วยงาน/สาขาวิชา options for the mission join form — rename/add the real list in admin › หน่วยงาน/สาขาวิชา
+    $units = ['[ชื่อภาควิชา/หน่วยงาน 1]', '[ชื่อภาควิชา/หน่วยงาน 2]', '[ชื่อภาควิชา/หน่วยงาน 3]'];
+    foreach ($units as $i => $name) {
+        $add('INSERT INTO units (name, sort) VALUES (?, ?)', [$name, $i + 1]);
     }
 
     if (!$withSample) {

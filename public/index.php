@@ -7,7 +7,8 @@ $active = 'home';
 [$cur, $prev] = latest_two_months();
 $meta = resource_meta();
 $game = game_stats();
-$missions = rows('SELECT * FROM missions WHERE is_active = 1 ORDER BY sort, id');
+$missions = missions_with_progress();
+$units = units_list();
 $news = rows("SELECT * FROM news WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT 4");
 $evidenceCount = (int)val('SELECT COUNT(*) FROM criteria_evidence') + (int)val('SELECT COUNT(*) FROM documents WHERE is_published = 1');
 $ghgCut = ($cur && $prev) ? max(0, ghg_of($prev) - ghg_of($cur)) : 0;
@@ -194,11 +195,14 @@ require __DIR__ . '/../app/views/public_top.php';
       <a href="<?= e(url('operations.php')) ?>" class="text-ku font-semibold underline min-h-[44px] inline-flex items-center">ดูการดำเนินงานทั้งหมด →</a>
     </div>
     <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
-      <?php foreach ($missions as $m): ?>
-        <div class="hover-lift bg-white rounded-[20px] p-4 flex flex-col gap-3">
+      <?php foreach ($missions as $m): $joined = mission_already_joined((int)$m['id']); ?>
+        <div class="hover-lift bg-white rounded-[20px] p-4 flex flex-col gap-3" data-mission-card="<?= (int)$m['id'] ?>">
           <div class="font-semibold"><?= e($m['name']) ?></div>
-          <div class="h-2.5 rounded-full bg-[#EDF0EA] overflow-hidden"><div class="grow-bar h-full rounded-full" data-w="<?= (int)$m['progress'] ?>" style="background:<?= e($m['color']) ?>"></div></div>
-          <div class="flex justify-between text-sm text-muted"><span><?= e($m['target_text']) ?></span><span class="font-semibold text-ink"><?= (int)$m['progress'] ?>%</span></div>
+          <div class="h-2.5 rounded-full bg-[#EDF0EA] overflow-hidden"><div class="grow-bar h-full rounded-full" data-w="<?= $m['pct'] ?>" data-mission-bar style="background:<?= e($m['color']) ?>"></div></div>
+          <div class="flex justify-between text-sm text-muted"><span><?= e($m['target_text']) ?></span><span class="font-semibold text-ink"><span data-mission-pct><?= $m['pct'] ?></span>%</span></div>
+          <div class="flex justify-between items-center text-sm text-muted"><span><span data-mission-joined><?= $m['joined'] ?></span>/<?= (int)$m['target_count'] ?> คนเข้าร่วม</span>
+            <button type="button" class="btn-sm btn-outline" data-mission-join="<?= (int)$m['id'] ?>" data-mission-name="<?= e($m['name']) ?>" <?= $joined ? 'disabled' : '' ?>><?= $joined ? 'เข้าร่วมแล้ว' : 'เข้าร่วม' ?></button>
+          </div>
         </div>
       <?php endforeach; ?>
     </div>
@@ -221,4 +225,5 @@ require __DIR__ . '/../app/views/public_top.php';
   <?php include __DIR__ . '/../app/views/partials/news_cards.php'; ?>
 </section>
 
+<?php include __DIR__ . '/../app/views/partials/mission_join_dialog.php'; ?>
 <?php require __DIR__ . '/../app/views/public_bottom.php'; ?>

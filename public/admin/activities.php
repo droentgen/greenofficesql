@@ -27,12 +27,12 @@ if (is_post()) {
         q('DELETE FROM activities WHERE id = ?', [$id]);
         flash('ลบกิจกรรมแล้ว');
     } elseif ($a === 'save_mission') {
-        $vals = [mb_substr(trim((string)$_POST['name']), 0, 200), mb_substr(trim((string)$_POST['target_text']), 0, 255), max(0, min(100, (int)$_POST['progress'])), preg_match('/^#[0-9a-fA-F]{6}$/', (string)$_POST['color']) ? $_POST['color'] : '#9CCB3B', (int)$_POST['sort'], isset($_POST['is_active']) ? 1 : 0];
+        $vals = [mb_substr(trim((string)$_POST['name']), 0, 200), mb_substr(trim((string)$_POST['target_text']), 0, 255), max(0, (int)$_POST['target_count']), preg_match('/^#[0-9a-fA-F]{6}$/', (string)$_POST['color']) ? $_POST['color'] : '#9CCB3B', (int)$_POST['sort'], isset($_POST['is_active']) ? 1 : 0];
         if ($vals[0] !== '') {
             if ($id) {
-                q('UPDATE missions SET name = ?, target_text = ?, progress = ?, color = ?, sort = ?, is_active = ? WHERE id = ?', [...$vals, $id]);
+                q('UPDATE missions SET name = ?, target_text = ?, target_count = ?, color = ?, sort = ?, is_active = ? WHERE id = ?', [...$vals, $id]);
             } else {
-                q('INSERT INTO missions (name, target_text, progress, color, sort, is_active) VALUES (?,?,?,?,?,?)', $vals);
+                q('INSERT INTO missions (name, target_text, target_count, color, sort, is_active) VALUES (?,?,?,?,?,?)', $vals);
             }
             flash('บันทึกภารกิจแล้ว');
         }
@@ -44,7 +44,7 @@ if (is_post()) {
 }
 
 $acts = rows('SELECT * FROM activities ORDER BY due_date IS NULL, due_date, id');
-$missions = rows('SELECT * FROM missions ORDER BY sort, id');
+$missions = missions_with_progress(false);
 require __DIR__ . '/../../app/views/admin_top.php';
 ?>
 <form method="post" class="bg-white rounded-3xl p-5 flex flex-wrap gap-2.5 items-end">
@@ -82,17 +82,19 @@ require __DIR__ . '/../../app/views/admin_top.php';
 
 <div class="bg-white rounded-3xl p-6 flex flex-col gap-3">
   <h2 class="font-display font-medium text-xl">ภารกิจประจำเดือน (แสดงบนหน้าแรก)</h2>
-  <?php foreach (array_merge($missions, [['id' => 0, 'name' => '', 'target_text' => '', 'progress' => 0, 'color' => '#9CCB3B', 'sort' => count($missions) + 1, 'is_active' => 1]]) as $m): ?>
+  <p class="text-muted">% คืบหน้าคำนวณอัตโนมัติจากจำนวนคนที่กดเข้าร่วมบนหน้าเว็บ เทียบกับเป้าหมายที่ตั้งไว้ — ดูสรุปแยกตามหน่วยงานได้ที่ <a href="<?= e(url('admin/mission-dashboard.php')) ?>" class="text-ku underline">แดชบอร์ดภารกิจ</a></p>
+  <?php foreach (array_merge($missions, [['id' => 0, 'name' => '', 'target_text' => '', 'target_count' => 0, 'color' => '#9CCB3B', 'sort' => count($missions) + 1, 'is_active' => 1, 'joined' => 0, 'pct' => 0]]) as $m): ?>
     <form method="post" class="flex flex-wrap gap-2 items-end border-t border-[#EDF0EA] pt-3">
       <?= csrf_field() ?><input type="hidden" name="action" value="save_mission"><input type="hidden" name="id" value="<?= (int)$m['id'] ?>">
       <label class="label flex-[2_1_200px]"><?= $m['id'] ? 'ภารกิจ' : 'เพิ่มภารกิจใหม่' ?><input type="text" name="name" value="<?= e($m['name']) ?>" class="input"></label>
-      <label class="label flex-[2_1_200px]">เป้าหมาย<input type="text" name="target_text" value="<?= e($m['target_text']) ?>" class="input"></label>
-      <label class="label w-24">คืบหน้า %<input type="number" name="progress" min="0" max="100" value="<?= (int)$m['progress'] ?>" class="input"></label>
+      <label class="label flex-[2_1_200px]">เป้าหมาย (ข้อความ)<input type="text" name="target_text" value="<?= e($m['target_text']) ?>" class="input"></label>
+      <label class="label w-28">เป้าหมาย (คน)<input type="number" name="target_count" min="0" value="<?= (int)$m['target_count'] ?>" class="input"></label>
+      <?php if ($m['id']): ?><span class="text-sm text-muted min-h-[46px] inline-flex items-center">เข้าร่วมแล้ว <?= (int)$m['joined'] ?> คน (<?= $m['pct'] ?>%)</span><?php endif; ?>
       <label class="label w-20">สี<input type="color" name="color" value="<?= e($m['color']) ?>" class="input p-1"></label>
       <label class="label w-20">ลำดับ<input type="number" name="sort" value="<?= (int)$m['sort'] ?>" class="input"></label>
       <label class="flex items-center gap-1.5 text-sm min-h-[46px]"><input type="checkbox" name="is_active" <?= $m['is_active'] ? 'checked' : '' ?> class="w-5 h-5 accent-ku"> แสดง</label>
       <button class="btn-sm btn-outline min-h-[46px]">บันทึก</button>
-      <?php if ($m['id']): ?></form><form method="post" class="flex items-end"><?= csrf_field() ?><input type="hidden" name="action" value="delete_mission"><input type="hidden" name="id" value="<?= (int)$m['id'] ?>"><button data-confirm="ลบภารกิจนี้?" class="btn-sm btn-danger min-h-[46px]">ลบ</button><?php endif; ?>
+      <?php if ($m['id']): ?></form><form method="post" class="flex items-end"><?= csrf_field() ?><input type="hidden" name="action" value="delete_mission"><input type="hidden" name="id" value="<?= (int)$m['id'] ?>"><button data-confirm="ลบภารกิจนี้? (รายชื่อคนเข้าร่วมเดิมจะถูกลบไปด้วย)" class="btn-sm btn-danger min-h-[46px]">ลบ</button><?php endif; ?>
     </form>
   <?php endforeach; ?>
 </div>
