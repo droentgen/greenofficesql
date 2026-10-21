@@ -47,8 +47,8 @@ if (is_post()) {
 
 $q = trim((string)($_GET['q'] ?? ''));
 $posters = $q === ''
-    ? rows('SELECT * FROM posters ORDER BY posted_at DESC NULLS LAST, id DESC')
-    : rows("SELECT * FROM posters WHERE title ILIKE ? ORDER BY posted_at DESC NULLS LAST, id DESC", ['%' . addcslashes($q, '%_\\') . '%']);
+    ? rows('SELECT * FROM posters ORDER BY (posted_at IS NULL), posted_at DESC, id DESC')
+    : rows("SELECT * FROM posters WHERE title LIKE ? ORDER BY (posted_at IS NULL), posted_at DESC, id DESC", ['%' . addcslashes($q, '%_\\') . '%']);
 
 require __DIR__ . '/../../app/views/admin_top.php';
 ?>

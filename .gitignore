@@ -3,10 +3,16 @@ public/uploads/*
 !public/uploads/.htaccess
 !public/uploads/docs/
 !public/uploads/news/
+!public/uploads/posters/
+!public/uploads/videos/
 public/uploads/docs/*
 public/uploads/news/*
+public/uploads/posters/*
+public/uploads/videos/*
 !public/uploads/docs/.gitkeep
 !public/uploads/news/.gitkeep
+!public/uploads/posters/.gitkeep
+!public/uploads/videos/.gitkeep
 .DS_Store
 .vscode/*
 !.vscode/extensions.json

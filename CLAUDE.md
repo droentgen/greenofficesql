@@ -1,15 +1,16 @@
 # CLAUDE.md — guide for working on this project
 
 Green Office Digital Platform for the Faculty of Agriculture, Kasetsart University.
-Plain PHP 8 (no framework) + PostgreSQL (Supabase) + Tailwind CSS (Play CDN). UI text is Thai.
+Plain PHP 8 (no framework) + MySQL/MariaDB + Tailwind CSS (Play CDN). UI text is Thai.
+Deploy target is classic shared hosting (FTP upload + phpMyAdmin); local dev uses Laragon (Apache + PHP + MariaDB + phpMyAdmin).
 
 ## Run locally
 ```bash
-cp config/config.sample.php config/config.php   # set DB host/user/pass (Supabase connection info, or local Postgres)
-php database/install.php                        # create tables + starting data (add --no-sample for clean; target DB must already exist)
+cp config/config.sample.php config/config.php   # set DB host/user/pass (Laragon default: 127.0.0.1:3306, root, no password)
+php database/install.php                        # create tables + starting data (add --no-sample for clean; target DB must already exist — create it first)
 php -S localhost:8000 -t public                 # http://localhost:8000  (admin: /admin/  admin / green2569)
 ```
-After changing seed data in `database/install.php`, regenerate the SQL for the Supabase SQL editor:
+After changing seed data in `database/install.php`, regenerate `database/seed.sql`:
 `php database/install.php --dump-seed > database/seed.sql`
 
 ## Layout
@@ -17,8 +18,9 @@ After changing seed data in `database/install.php`, regenerate the SQL for the S
   `app/views/public_top.php` … `public_bottom.php` (or `admin_top.php` … `admin_bottom.php`).
 - `app/db.php` — `q()`, `rows()`, `row()`, `val()`; always pass values as `?` params.
 - `app/helpers.php` — `e()` escape, `url()`, `redirect()`, `csrf_field()/csrf_check()`, `flash()`, `setting()`,
-  `save_upload()`/`delete_upload()`/`upload_url()` (files live in Supabase Storage, not local disk — see `storage_put()`), `clean_url()`.
-- `app/session_db.php` — PHP sessions stored in Postgres (`app_sessions` table), not local disk; registered in `app/bootstrap.php`.
+  `save_upload()`/`delete_upload()`/`upload_url()` (files live in `public/uploads/<folder>/`), `clean_url()`.
+- `app/session_db.php` — PHP sessions stored in the database (`app_sessions` table), not local disk — the shared host may put requests on
+  different app instances behind a load balancer; registered in `app/bootstrap.php`.
 - `app/auth.php` — `require_login(['role', ...])` at the top of every admin page (admin always allowed).
 - `app/data.php` — shared queries: resources (GHG computed from fuel + electricity × factors in settings),
   7-category criteria (`category_table()`, `category_progress()`), complaints, intro game stats.
@@ -29,7 +31,7 @@ After changing seed data in `database/install.php`, regenerate the SQL for the S
 - Escape every output with `e()`; never build SQL with string concatenation of user input.
 - Every form that changes data: `<?= csrf_field() ?>` in the form and `csrf_check()` on POST.
 - Admin pages must call `require_login()` first.
-- Uploads only through `save_upload()` (whitelisted extensions, MIME checked, stored in Supabase Storage).
+- Uploads only through `save_upload()` (whitelisted extensions, MIME checked, saved under `public/uploads/`).
 - Never show complaint `name`/`contact` on public pages; public pages use `public_title`/`public_detail` only.
 - Resource order on the site is fixed: fuel → GHG → electricity → water → paper (`resource_meta()`).
 - Keep pages mobile-friendly (flex-wrap / auto-fit grids, tables inside `overflow-x-auto`) and touch targets ≥ 44px.
@@ -40,7 +42,7 @@ criteria_reports (one per indicator per year; checks_json = finished sub-items),
 news, documents (about tabs + complaint plan; pdf/image/link), missions, activities, audit_findings,
 complaints, complaint_plan_steps, game_responses.
 
-Schema changes for an already-running database go in `database/migrations/<date>-<name>.sql` (run once in the Supabase SQL editor);
+Schema changes for an already-running database go in `database/migrations/<date>-<name>.sql` (run once via phpMyAdmin or the mysql CLI);
 keep `schema.sql` as the full current structure for fresh installs.
 
 News body is plain text with `[ข้อความ](url)` links and `![](url)` images, rendered by `render_body()` (escapes first);

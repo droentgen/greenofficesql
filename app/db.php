@@ -1,6 +1,6 @@
 <?php
 /**
- * Database access (PDO + PostgreSQL / Supabase). Always use the helpers below with
+ * Database access (PDO + MySQL / MariaDB). Always use the helpers below with
  * placeholders (?) so user input is never put into SQL directly.
  *
  *   rows('SELECT * FROM news WHERE status = ?', ['published']);
@@ -15,7 +15,7 @@ function db(): PDO
     if ($pdo === null) {
         global $CONFIG;
         $c = $CONFIG['db'];
-        $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s', $c['host'], $c['port'], $c['name']);
+        $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'], $c['port'], $c['name']);
         $pdo = new PDO($dsn, $c['user'], $c['pass'], [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

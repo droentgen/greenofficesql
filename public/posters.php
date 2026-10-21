@@ -6,7 +6,7 @@ $pageTitle = 'โปสเตอร์ประชาสัมพันธ์ท
 $active = 'news';
 $q = trim((string)($_GET['q'] ?? ''));
 
-$posters = rows('SELECT id, title, image_path, posted_at FROM posters WHERE is_published = 1 ORDER BY posted_at DESC NULLS LAST, id DESC');
+$posters = rows('SELECT id, title, image_path, posted_at FROM posters WHERE is_published = 1 ORDER BY (posted_at IS NULL), posted_at DESC, id DESC');
 $groups = [];
 foreach ($posters as $p) {
     $year = $p['posted_at'] ? (string)((int)date('Y', strtotime($p['posted_at'])) + 543) : 'ไม่ระบุปี';

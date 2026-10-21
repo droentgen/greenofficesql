@@ -26,7 +26,7 @@ $page = min($pages, max(1, (int)($_GET['page'] ?? 1)));
 $news = rows('SELECT * FROM news WHERE ' . implode(' AND ', $where) . ' ORDER BY published_at DESC, id DESC LIMIT ' . $perPage . ' OFFSET ' . (($page - 1) * $perPage), $params);
 
 // One row of the newest posters; the rest are on posters.php.
-$posters = rows('SELECT id, title, image_path, posted_at FROM posters WHERE is_published = 1 ORDER BY posted_at DESC NULLS LAST, id DESC LIMIT 6');
+$posters = rows('SELECT id, title, image_path, posted_at FROM posters WHERE is_published = 1 ORDER BY (posted_at IS NULL), posted_at DESC, id DESC LIMIT 6');
 $posterTotal = (int)val('SELECT COUNT(*) FROM posters WHERE is_published = 1');
 
 /** Link to this page keeping the current filters, with some of them changed. */

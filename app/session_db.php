@@ -2,11 +2,11 @@
 /**
  * Database-backed PHP session storage.
  *
- * Needed because serverless hosts (Vercel) may run each request on a different
- * container with no shared local disk — PHP's default file-based sessions would
- * silently reset on every request, breaking CSRF tokens, admin login and flash
- * messages across the whole site. Storing sessions in Postgres fixes that, and
- * works the same way on every host (local dev, Railway, Vercel).
+ * Needed because some hosts may run each request on a different container with
+ * no shared local disk — PHP's default file-based sessions would silently reset
+ * on every request, breaking CSRF tokens, admin login and flash messages across
+ * the whole site. Storing sessions in the database fixes that, and works the
+ * same way on every host.
  */
 final class DbSessionHandler implements SessionHandlerInterface
 {
@@ -29,7 +29,7 @@ final class DbSessionHandler implements SessionHandlerInterface
     public function write(string $id, string $data): bool
     {
         q('INSERT INTO app_sessions (id, data, last_access) VALUES (?, ?, CURRENT_TIMESTAMP)
-           ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, last_access = EXCLUDED.last_access', [$id, $data]);
+           ON DUPLICATE KEY UPDATE data = VALUES(data), last_access = VALUES(last_access)', [$id, $data]);
         return true;
     }
 
@@ -41,6 +41,6 @@ final class DbSessionHandler implements SessionHandlerInterface
 
     public function gc(int $max_lifetime): int|false
     {
-        return q("DELETE FROM app_sessions WHERE last_access < CURRENT_TIMESTAMP - INTERVAL '1 second' * ?", [$max_lifetime])->rowCount();
+        return q('DELETE FROM app_sessions WHERE last_access < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ? SECOND)', [$max_lifetime])->rowCount();
     }
 }

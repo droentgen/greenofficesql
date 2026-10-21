@@ -104,7 +104,7 @@ function setting(string $key, string $default = ''): string
 
 function save_setting(string $key, string $value): void
 {
-    q('INSERT INTO settings (k, v) VALUES (?, ?) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v', [$key, $value]);
+    q('INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [$key, $value]);
 }
 
 /* ---------- Formatting ---------- */
@@ -154,14 +154,9 @@ const UPLOAD_TYPES = [
 ];
 
 /**
- * Save an uploaded file to Supabase Storage and return its path, e.g.
- * "uploads/docs/ab12cd.pdf" (same shape as the old local-disk path, so
- * existing rows/URLs built with upload_url() keep working), or null if no
- * file was sent. Throws RuntimeException with a Thai message on failure.
- *
- * Stored in Supabase Storage (not local disk) because every deploy target
- * here can run a request on a fresh container with no shared filesystem —
- * a locally-saved file would vanish before the next request could read it.
+ * Save an uploaded file to public/uploads/ and return its path, e.g.
+ * "uploads/docs/ab12cd.pdf", or null if no file was sent.
+ * Throws RuntimeException with a Thai message on failure.
  */
 function save_upload(string $field, string $folder, array $allowedExt = ['pdf', 'jpg', 'jpeg', 'png', 'webp']): ?string
 {
@@ -185,77 +180,33 @@ function save_upload(string $field, string $folder, array $allowedExt = ['pdf', 
     if (!in_array($mime, UPLOAD_TYPES[$ext], true)) {
         throw new RuntimeException('ชนิดไฟล์ไม่ตรงกับนามสกุล');
     }
-    $name = date('Ymd') . '-' . bin2hex(random_bytes(8)) . '.' . $ext;
-    $bytes = file_get_contents($f['tmp_name']);
-    if ($bytes === false) {
-        throw new RuntimeException('อ่านไฟล์ที่อัปโหลดไม่สำเร็จ');
+    $dir = PUBLIC_DIR . '/uploads/' . $folder;
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        throw new RuntimeException('สร้างโฟลเดอร์อัปโหลดไม่สำเร็จ');
     }
-    storage_put($folder . '/' . $name, $bytes, $mime);
+    $name = date('Ymd') . '-' . bin2hex(random_bytes(8)) . '.' . $ext;
+    if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) {
+        throw new RuntimeException('บันทึกไฟล์ที่อัปโหลดไม่สำเร็จ');
+    }
     return 'uploads/' . $folder . '/' . $name;
 }
 
-/** Delete a previously uploaded file from Supabase Storage. */
+/** Delete a previously uploaded file from local disk. Best-effort — a missing file is not an error worth surfacing. */
 function delete_upload(?string $relPath): void
 {
     if (!$relPath || !str_starts_with($relPath, 'uploads/')) {
         return;
     }
-    storage_delete(substr($relPath, strlen('uploads/')));
+    $path = PUBLIC_DIR . '/' . $relPath;
+    if (is_file($path)) {
+        @unlink($path);
+    }
 }
-
-/* ---------- Supabase Storage (where uploaded files actually live) ---------- */
 
 /** Public URL for a stored file path like "uploads/docs/xxxx.pdf", or '' if none. */
 function upload_url(?string $relPath): string
 {
-    if (!$relPath) {
-        return '';
-    }
-    global $CONFIG;
-    $s = $CONFIG['storage'] ?? [];
-    $key = preg_replace('#^uploads/#', '', $relPath);
-    return rtrim($s['url'] ?? '', '/') . '/storage/v1/object/public/' . ($s['bucket'] ?? 'uploads') . '/' . $key;
-}
-
-/** Upload raw bytes to Supabase Storage. Throws RuntimeException (Thai message) on failure. */
-function storage_put(string $key, string $bytes, string $mime): void
-{
-    global $CONFIG;
-    $s = $CONFIG['storage'] ?? [];
-    $url = rtrim($s['url'] ?? '', '/') . '/storage/v1/object/' . ($s['bucket'] ?? 'uploads') . '/' . $key;
-    $ctx = stream_context_create(['http' => [
-        'method'        => 'POST',
-        'header'        => "Authorization: Bearer " . ($s['service_key'] ?? '') . "\r\napikey: " . ($s['service_key'] ?? '') . "\r\nContent-Type: $mime\r\nx-upsert: true",
-        'content'       => $bytes,
-        'ignore_errors' => true,
-        'timeout'       => 30,
-    ]]);
-    $body = @file_get_contents($url, false, $ctx);
-    $status = (int)explode(' ', $http_response_header[0] ?? '0 0')[1];
-    if ($status < 200 || $status >= 300) {
-        // Status 0 means the request never got an HTTP response at all (DNS/TLS/network
-        // failure, or 'storage.url' is empty/misconfigured) — show the connection error
-        // and which host it tried, since "รหัส 0" alone gives no clue which one.
-        $detail = $status === 0
-            ? (error_get_last()['message'] ?? '') . ' (host: ' . (parse_url($url, PHP_URL_HOST) ?: 'ไม่พบ — ตรวจค่า SUPABASE_URL') . ')'
-            : mb_substr((string)$body, 0, 200);
-        throw new RuntimeException('อัปโหลดไฟล์ไปที่พื้นที่เก็บข้อมูลไม่สำเร็จ (รหัส ' . $status . ') ' . $detail);
-    }
-}
-
-/** Delete an object from Supabase Storage. Best-effort — a missing object is not an error worth surfacing. */
-function storage_delete(string $key): void
-{
-    global $CONFIG;
-    $s = $CONFIG['storage'] ?? [];
-    $url = rtrim($s['url'] ?? '', '/') . '/storage/v1/object/' . ($s['bucket'] ?? 'uploads') . '/' . $key;
-    $ctx = stream_context_create(['http' => [
-        'method'        => 'DELETE',
-        'header'        => "Authorization: Bearer " . ($s['service_key'] ?? '') . "\r\napikey: " . ($s['service_key'] ?? ''),
-        'ignore_errors' => true,
-        'timeout'       => 30,
-    ]]);
-    @file_get_contents($url, false, $ctx);
+    return $relPath ? url($relPath) : '';
 }
 
 /** Accept only http(s) links for evidence and documents. */

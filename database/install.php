@@ -7,7 +7,7 @@
  *   php database/install.php --dump-seed     print seed SQL (used to regenerate database/seed.sql)
  *
  * Without the command line? Run database/schema.sql then database/seed.sql against your
- * PostgreSQL / Supabase database (SQL editor on supabase.com, or psql).
+ * MySQL / MariaDB database (phpMyAdmin, HeidiSQL, or the mysql CLI).
  */
 declare(strict_types=1);
 
@@ -28,17 +28,14 @@ if ($dumpOnly) {
     foreach ($statements as [$sql, $params]) {
         echo inline_sql($sql, $params) . ";\n";
     }
-    echo "\n-- criteria_issues/criteria_indicators above were seeded with explicit ids — fast-forward their sequences.\n";
-    echo "SELECT setval(pg_get_serial_sequence('criteria_issues', 'id'), COALESCE((SELECT MAX(id) FROM criteria_issues), 1));\n";
-    echo "SELECT setval(pg_get_serial_sequence('criteria_indicators', 'id'), COALESCE((SELECT MAX(id) FROM criteria_indicators), 1));\n";
     exit(0);
 }
 
-// Target database must already exist (Supabase always provisions one; for local
-// PostgreSQL, create it first with `createdb green_office` or via pgAdmin).
+// Target database must already exist — create it first (phpMyAdmin, HeidiSQL,
+// or `CREATE DATABASE green_office CHARACTER SET utf8mb4;` via the mysql CLI).
 $config = require dirname(__DIR__) . '/config/config.php';
 $c = $config['db'];
-$pdo = new PDO(sprintf('pgsql:host=%s;port=%d;dbname=%s', $c['host'], $c['port'], $c['name']), $c['user'], $c['pass'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$pdo = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'], $c['port'], $c['name']), $c['user'], $c['pass'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
 echo "Creating tables...\n";
 $pdo->exec(file_get_contents(__DIR__ . '/schema.sql'));
@@ -46,10 +43,9 @@ echo "Inserting starting data...\n";
 foreach ($statements as [$sql, $params]) {
     $pdo->prepare($sql)->execute($params);
 }
-// criteria_issues/criteria_indicators are seeded with explicit ids (from criteria.json),
-// so their auto-increment sequences must be fast-forwarded past the seeded rows.
-$pdo->exec("SELECT setval(pg_get_serial_sequence('criteria_issues', 'id'), COALESCE((SELECT MAX(id) FROM criteria_issues), 1))");
-$pdo->exec("SELECT setval(pg_get_serial_sequence('criteria_indicators', 'id'), COALESCE((SELECT MAX(id) FROM criteria_indicators), 1))");
+// criteria_issues/criteria_indicators are seeded with explicit ids (from criteria.json);
+// AUTO_INCREMENT in MySQL/MariaDB tracks the highest inserted id automatically, so
+// unlike Postgres there is no sequence to fast-forward here.
 echo "Done. Admin login: admin / green2569 — change the password in ระบบหลังบ้าน › ผู้ใช้งาน.\n";
 
 /* ------------------------------------------------------------------ */

@@ -22,7 +22,7 @@ if (is_post()) {
         flash('กรุณาเลือกเดือนและปี พ.ศ. ให้ถูกต้อง', 'error');
     } else {
         q('INSERT INTO resource_monthly (year_be, month, fuel_l, elec_kwh, water_m3, paper_ream, note, updated_by) VALUES (?,?,?,?,?,?,?,?)
-           ON CONFLICT (year_be, month) DO UPDATE SET fuel_l = EXCLUDED.fuel_l, elec_kwh = EXCLUDED.elec_kwh, water_m3 = EXCLUDED.water_m3, paper_ream = EXCLUDED.paper_ream, note = EXCLUDED.note, updated_by = EXCLUDED.updated_by',
+           ON DUPLICATE KEY UPDATE fuel_l = VALUES(fuel_l), elec_kwh = VALUES(elec_kwh), water_m3 = VALUES(water_m3), paper_ream = VALUES(paper_ream), note = VALUES(note), updated_by = VALUES(updated_by)',
             [$y, $m, $vals['fuel_l'], $vals['elec_kwh'], $vals['water_m3'], $vals['paper_ream'], mb_substr(trim((string)($_POST['note'] ?? '')), 0, 255), $u['id']]);
         flash('บันทึกข้อมูล ' . THAI_MONTHS[$m] . ' ' . $y . ' แล้ว — ตัวเลขหน้าแรกอัปเดตทันที');
     }

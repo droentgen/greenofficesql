@@ -205,8 +205,8 @@ const GAME_TOPICS = [
 function game_stats(): array
 {
     $r = row('SELECT COUNT(*) AS players,
-                     SUM((a_elec > 0)::int) AS a_elec, SUM((a_plastic > 0)::int) AS a_plastic,
-                     SUM((a_paper > 0)::int) AS a_paper, SUM((a_commute > 0)::int) AS a_commute
+                     SUM(a_elec > 0) AS a_elec, SUM(a_plastic > 0) AS a_plastic,
+                     SUM(a_paper > 0) AS a_paper, SUM(a_commute > 0) AS a_commute
               FROM game_responses') ?? [];
     $players = (int)($r['players'] ?? 0);
     $topics = [];
