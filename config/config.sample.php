@@ -16,8 +16,10 @@ return [
     ],
 
     // URL path of the public/ folder.
-    // null  = detect automatically (works for XAMPP/Laragon: http://localhost/green-office/public/)
-    // ''    = public/ is the web server's document root (recommended on a real server)
+    // null      = detect automatically (works for XAMPP/Laragon: http://localhost/green-office/public/)
+    // ''        = public/ is the web server's document root (recommended when you control the vhost)
+    // '/public' = whole project sits inside the web root as one folder, e.g. shared hosting where you
+    //             can only FTP into htdocs/ and can't repoint the document root (see root .htaccess)
     'base_url' => null,
 
     // Show PHP errors on screen. Set to false on the live server.

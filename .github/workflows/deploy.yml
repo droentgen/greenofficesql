@@ -13,33 +13,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # public/ is the web root — goes straight into htdocs/
-      - name: Deploy public/ → htdocs
+      # InfinityFree (and most free/shared hosts) sandbox PHP's open_basedir to the
+      # htdocs/ folder only — nothing outside it is reachable, even via a sibling
+      # folder on the same FTP account. So the WHOLE project (public/, app/,
+      # config/, database/) goes inside htdocs/ together, and the root .htaccess
+      # (see .htaccess) routes requests into public/ and blocks direct access to
+      # app/, config/, database/.
+      - name: Deploy whole project → htdocs
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./public/
+          local-dir: ./
           server-dir: ./greenoffice.freedev.app/htdocs/
           exclude: |
-            **/uploads/**
-
-      # app/, database/ live one level above htdocs — never web-accessible directly
-      - name: Deploy app/ → sibling folder
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./app/
-          server-dir: ./greenoffice.freedev.app/app/
-
-      - name: Deploy database/ → sibling folder
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./database/
-          server-dir: ./greenoffice.freedev.app/database/
+            **/.git*
+            **/.git/**
+            **/.github/**
+            **/public/uploads/**
+            **/config/config.php
+            **/Dockerfile*
+            **/docker-entrypoint*.sh
+            **/Caddyfile
+            **/vercel.json
+            **/.vercelignore
+            **/.dockerignore
