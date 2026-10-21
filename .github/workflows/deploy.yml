@@ -31,11 +31,18 @@ jobs:
             **/.git*
             **/.git/**
             **/.github/**
+            **/.vscode/**
             **/public/uploads/**
             **/config/config.php
             **/Dockerfile*
             **/docker-entrypoint*.sh
+            **/docker-apache.conf
+            **/docker-php-uploads.ini
             **/Caddyfile
             **/vercel.json
             **/.vercelignore
             **/.dockerignore
+            **/README.md
+            **/CLAUDE.md
+            **/note*.txt
+            **/EX-เอกสาร/**
