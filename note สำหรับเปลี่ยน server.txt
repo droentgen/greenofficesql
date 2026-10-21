@@ -1,0 +1,57 @@
+❯ server จริงๆ ของทีทำงาน จะต้อง upload มีแค่ FTP และ phpMySQL แลพ mariadb
+  1. ฉันจะต้องทำแก้ไขอะไรบ้าง
+  2. ใช้  server จำลองตัวไหนดี ถึงจะสามารถ upload project ขึ้นไปเทสแทน server ของ supabase
+  3. server จำลองฟรีที่ใช้งานง่าย เชื่อมต่อกับ github ได้
+
+  Searched for 4 patterns, read 2 files
+
+1. สิ่งที่ต้องแก้ไข (ย้าย Postgres/Supabase → MariaDB)
+
+ไล่ดูทั้งโปรเจกต์แล้ว เจอจุดที่เป็น Postgres-specific syntax ดังนี้ครับ:
+
+การเชื่อมต่อ
+- app/db.php:18 — DSN จาก pgsql:host=... → mysql:host=...;charset=utf8mb4
+- database/install.php:41 — DSN เดียวกัน ต้องแก้ตาม
+
+database/schema.sql (ต้องเขียนใหม่ทั้งไฟล์)
+- SERIAL → INT AUTO_INCREMENT
+- CREATE OR REPLACE FUNCTION set_updated_at() + CREATE TRIGGER (plpgsql) → MySQL ไม่มี plpgsql ให้ใช้ ON UPDATE CURRENT_TIMESTAMP ต่อท้ายคอลัมน์ updated_at แทนได้เลย (ง่ายกว่าเดิม ไม่ต้องมี trigger/function)
+- DROP TABLE ... CASCADE → MySQL ไม่มีคีย์เวิร์ด CASCADE ตรงนี้ ต้อง SET FOREIGN_KEY_CHECKS=0; ก่อน drop แทน
+- CHECK (col IN (...)) (users.role, news.category/status, documents.section/file_type, activities.status, audit_findings.status, complaints.type/status) — MariaDB บังคับ CHECK จริงจังตั้งแต่ 10.2 เป็นต้นไป ถ้าโฮสต์เป็นเวอร์ชันเก่ากว่านั้นจะถูกเพิกเฉยเงียบ ๆ แนะนำเปลี่ยนเป็น ENUM(...) แทนเพื่อความชัวร์
+- ต้องกำหนด charset/collation utf8mb4 ให้ตารางทั้งหมด (รองรับภาษาไทยเต็มรูปแบบ)
+
+โค้ด query ที่ใช้ syntax เฉพาะของ Postgres
+- app/helpers.php:107 — ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v → ON DUPLICATE KEY UPDATE v = VALUES(v)
+- app/session_db.php:32 — เหมือนกัน (ON CONFLICT → ON DUPLICATE KEY UPDATE)
+- app/session_db.php:44 — INTERVAL '1 second' * ? → DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ? SECOND)
+- public/admin/stats.php:25 — ON CONFLICT (year_be, month) DO UPDATE ... → ON DUPLICATE KEY UPDATE ...
+- app/data.php:208-209 — (a_elec > 0)::int → เอา ::int ออกเฉย ๆ (SUM(a_elec > 0) ใช้ได้เลยใน MySQL)
+- public/admin/posters.php:51 — ILIKE → LIKE (ปกติ MySQL/MariaDB เทียบแบบไม่สนตัวพิมพ์เล็ก-ใหญ่อยู่แล้วถ้า collation เป็น *_general_ci/*_unicode_ci)
+- public/news.php:29, public/posters.php:9, public/admin/posters.php:50,51 — ORDER BY posted_at DESC NULLS LAST → MySQL ไม่มี NULLS LAST ต้องเขียนเป็น ORDER BY (posted_at IS NULL), posted_at DESC
+- database/install.php:32-33,51-52 — pg_get_serial_sequence + setval(...) (รีเซ็ตลำดับ ID ของ Postgres) → ลบทิ้งได้เลย เพราะ AUTO_INCREMENT ของ MySQL ไม่ต้องรีเซ็ตแบบนี้
+
+ระบบอัปโหลดไฟล์ (app/helpers.php: save_upload()/delete_upload()/storage_put()/storage_delete()/upload_url())
+- ตอนนี้ยิง HTTP ไปที่ Supabase Storage เพราะ deploy เป็น container ไม่มี disk ถาวร — แต่ server จริงของคุณเป็น FTP โฮสติ้งทั่วไปที่มี disk ถาวรอยู่แล้ว เลยเขียนไฟล์ลง public/uploads/... ตรง ๆ แบบเดิมแทนได้ ง่ายกว่าของเดิมด้วย (ลบโค้ดเรียก Supabase Storage ออกทั้งหมด)
+
+config/config.php
+- ลบ block storage (Supabase) ทิ้ง
+- แก้ db เป็น host/port(3306)/ชื่อ DB/user/pass ของ MariaDB ที่ได้จาก phpMyAdmin/cPanel ของ server จริง
+
+ทั้งหมดนี้เป็นงาน rewrite ที่ชัดเจนและจำกัดวง (ไม่กระทบ query อื่น ๆ ที่เหลือเพราะเป็น SQL มาตรฐานอยู่แล้ว) — ถ้าต้องการผมแก้ให้ได้เลยครับ
+
+---
+
+2. Server จำลองไว้เทส (local)
+
+Laragon (Windows) เหมาะที่สุดสำหรับเครื่องคุณครับ — รวม Apache/Nginx + PHP + MariaDB + phpMyAdmin ไว้ในตัว ติดตั้งเร็ว ไม่ต้องตั้งค่าอะไรเยอะ และจำลอง stack ตรงกับ server จริงที่ทำงาน (FTP + phpMyAdmin + MariaDB) ได้ใกล้เคียงที่สุด ดีกว่า XAMPP ตรงที่ virtual host/SSL ตั้งง่ายกว่า และรองรับ Git ในตัว
+
+3. Server จำลองออนไลน์ฟรี ต่อกับ GitHub ได้
+
+ไม่มีโฮสต์ฟรีไหนที่ auto-deploy จาก GitHub ให้ตรง ๆ แบบ Vercel (เพราะเป็น FTP hosting แบบเก่า) แต่ต่อกันได้ด้วยวิธีนี้:
+
+- InfinityFree — ฟรี, มี FTP + phpMyAdmin + MySQL/MariaDB เหมือน server จริงของคุณเป๊ะ ๆ เสถียรกว่าโฮสต์ฟรีเจ้าอื่น
+- ต่อกับ GitHub ด้วย GitHub Actions (เช่น action SamKirkland/FTP-Deploy-Action) — ตั้ง workflow ให้ทุกครั้งที่ git push ขึ้น main ไฟล์จะถูกอัป FTP ไปที่ InfinityFree อัตโนมัติ เท่ากับจำลองขั้นตอน "push → ขึ้นเทส" ได้ใกล้เคียงของจริงที่สุด แล้วพอพร้อมค่อยสลับ FTP ปลายทางไปเป็น server จริงของที่ทำงาน
+
+สรุปเส้นทาง: เขียน/เทสบน Laragon (local) → push ขึ้น GitHub → Actions FTP-deploy ไป InfinityFree เทสออนไลน์ → ปรับปลายทางเป็น server จริง
+
+ต้องการให้เริ่มแก้โค้ดตามข้อ 1 เลยไหมครับ
