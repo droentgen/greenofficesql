@@ -1,0 +1,45 @@
+name: Deploy to InfinityFree
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ftp-deploy:
+    name: FTP deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # public/ is the web root — goes straight into htdocs/
+      - name: Deploy public/ → htdocs
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./public/
+          server-dir: ./greenoffice.freedev.app/htdocs/
+          exclude: |
+            **/uploads/**
+
+      # app/, database/ live one level above htdocs — never web-accessible directly
+      - name: Deploy app/ → sibling folder
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./app/
+          server-dir: ./greenoffice.freedev.app/app/
+
+      - name: Deploy database/ → sibling folder
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./database/
+          server-dir: ./greenoffice.freedev.app/database/
