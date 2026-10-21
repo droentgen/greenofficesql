@@ -151,6 +151,7 @@
 
     game.querySelectorAll('[data-answer]').forEach(function (b) {
       b.addEventListener('click', function () {
+        if (answers.length >= questions.length) return; // already answered all questions — ignore extra/rapid clicks
         answers.push(parseInt(b.getAttribute('data-answer'), 10));
         if (answers.length >= questions.length) finish(); else render();
       });
